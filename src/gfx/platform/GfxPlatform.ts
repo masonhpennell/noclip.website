@@ -227,6 +227,7 @@ export interface GfxBindingsDescriptor2 {
 export interface GfxProgramDescriptorSimple {
     preprocessedVert: string;
     preprocessedFrag: string | null;
+    shadingLanguage?: GfxShadingLanguage;
 }
 
 export interface GfxProgramDescriptor extends GfxProgramDescriptorSimple {

@@ -1086,6 +1086,7 @@ class GfxImplP_WebGPU implements GfxSwapChain, GfxDevice {
         let code: string;
         try {
             code = this.glsl_compile(sourceText, shaderStage, validationEnabled);
+            console.log(code);
         } catch (e) {
             console.error(sourceText);
             throw "whoops";
@@ -1120,8 +1121,9 @@ class GfxImplP_WebGPU implements GfxSwapChain, GfxDevice {
     }
 
     public createProgramSimple(descriptor: GfxProgramDescriptorSimple): GfxProgram {
-        const vertexStage = this._createShaderStageGLSL(descriptor.preprocessedVert, 'vertex');
-        const fragmentStage = descriptor.preprocessedFrag !== null ? this._createShaderStageGLSL(descriptor.preprocessedFrag, 'fragment') : null;
+        const shadingLanguage = descriptor.shadingLanguage ?? GfxShadingLanguage.GLSL;
+        const vertexStage = this._createShaderStage(descriptor.preprocessedVert, 'vertex', shadingLanguage);
+        const fragmentStage = descriptor.preprocessedFrag !== null ? this._createShaderStage(descriptor.preprocessedFrag, 'fragment', shadingLanguage) : null;
         const program: GfxProgramP_WebGPU = { _T: _T.Program, ResourceUniqueId: this.getNextUniqueId(), descriptor, vertexStage, fragmentStage, };
         return program;
     }

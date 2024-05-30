@@ -13,7 +13,8 @@ function gfxProgramDescriptorSimpleEquals(a: GfxProgramDescriptorSimple, b: GfxP
 function gfxProgramDescriptorSimpleCopy(a: GfxProgramDescriptorSimple): GfxProgramDescriptorSimple {
     const preprocessedVert = a.preprocessedVert;
     const preprocessedFrag = a.preprocessedFrag;
-    return { preprocessedVert, preprocessedFrag };
+    const shadingLanguage = a.shadingLanguage;
+    return { preprocessedVert, preprocessedFrag, shadingLanguage };
 }
 
 function gfxRenderBindingLayoutHash(hash: number, a: GfxBindingLayoutDescriptor): number {

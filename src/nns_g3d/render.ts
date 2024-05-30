@@ -13,7 +13,7 @@ import { TextureMapping } from "../TextureHolder.js";
 import { setAttachmentStateSimple } from "../gfx/helpers/GfxMegaStateDescriptorHelpers.js";
 import { convertToCanvas } from "../gfx/helpers/TextureConversionHelpers.js";
 import { fillColor, fillMatrix3x2, fillMatrix4x3 } from "../gfx/helpers/UniformBufferHelpers.js";
-import { GfxBindingLayoutDescriptor, GfxBlendFactor, GfxBlendMode, GfxDevice, GfxFormat, GfxMegaStateDescriptor, GfxMipFilterMode, GfxProgram, GfxSampler, GfxTexFilterMode, GfxTexture, makeTextureDescriptor2D } from '../gfx/platform/GfxPlatform.js';
+import { GfxBindingLayoutDescriptor, GfxBlendFactor, GfxBlendMode, GfxDevice, GfxFormat, GfxMegaStateDescriptor, GfxMipFilterMode, GfxProgram, GfxSampler, GfxShadingLanguage, GfxTexFilterMode, GfxTexture, makeTextureDescriptor2D } from '../gfx/platform/GfxPlatform.js';
 import { GfxRenderCache } from "../gfx/render/GfxRenderCache.js";
 import { GfxRenderInst, GfxRenderInstManager, GfxRendererLayer, makeSortKeyOpaque } from "../gfx/render/GfxRenderInstManager.js";
 import { assertExists, nArray } from "../util.js";
@@ -239,6 +239,94 @@ const enum BillboardMode {
     NONE, BB, BBY,
 }
 
+const vertProgram = `
+struct Mat4x4 {
+    mx: vec4f,
+    my: vec4f,
+    mz: vec4f,
+    mw: vec4f,
+}
+
+struct Mat4x3 {
+    mx: vec4f,
+    my: vec4f,
+    mz: vec4f,
+}
+
+struct Mat4x2 {
+    mx: vec4f,
+    my: vec4f,
+}
+
+struct SceneParams {
+    u_Projection: Mat4x4,
+    u_LightDir: array<vec4f, 4>,
+    u_LightColor: array<vec4f, 4>,
+}
+
+struct MaterialParams {
+    u_TexMtx: array<Mat4x2, 1>,
+    u_Misc: array<vec4f, 4>,
+}
+
+struct DrawParams {
+    u_PosMtx: array<Mat4x3, 32>,
+}
+
+struct VertexOutput {
+    @builtin(position) out_Position: vec4f,
+    @location(0) v_Color: vec4f,
+    @location(1) v_TexCoord: vec2f,
+}
+
+@group(0) @binding(2) 
+var<uniform> ub_SceneParams: SceneParams;
+@group(0) @binding(3) 
+var<uniform> ub_MaterialParams: MaterialParams;
+@group(0) @binding(4) 
+var<uniform> ub_DrawParams: DrawParams;
+
+fn Mul_4x4(m: Mat4x4, v: vec4f) -> vec4f { return vec4f(dot(m.mx, v), dot(m.my, v), dot(m.mz, v), dot(m.mw, v)); }
+fn Mul_4x3(m: Mat4x3, v: vec4f) -> vec3f { return vec3f(dot(m.mx, v), dot(m.my, v), dot(m.mz, v)); }
+fn Mul_4x2(m: Mat4x2, v: vec4f) -> vec2f { return vec2f(dot(m.mx, v), dot(m.my, v)); }
+
+@vertex
+fn main(@location(0) a_Position: vec3<f32>, @location(1) a_UV: vec2<f32>, @location(2) a_Color: vec4<f32>, @location(3) a_Normal: vec3<f32>, @location(4) a_PosMtxIdx: f32) -> VertexOutput {
+    let t_PosMtx = ub_DrawParams.u_PosMtx[i32(a_PosMtxIdx)];
+    let v_Position = Mul_4x4(ub_SceneParams.u_Projection, vec4f(Mul_4x3(t_PosMtx, vec4f(a_Position, 1.0f)), 1.0));
+    let v_Color = a_Color;
+    let v_TexCoord = Mul_4x2(ub_MaterialParams.u_TexMtx[0], vec4f(a_UV, 1.0f, 1.0f)).xy;
+    return VertexOutput(v_Position, v_Color, v_TexCoord);
+}
+`;
+
+const fragProgram = `
+struct VertexOutput {
+    @builtin(position) out_Position: vec4f,
+    @location(0) v_Color: vec4f,
+    @location(1) v_TexCoord: vec2f,
+}
+
+struct FragmentOutput {
+    @location(0) out_Color: vec4f,
+}
+
+@group(0) @binding(0) 
+var T_u_Texture: texture_2d<f32>;
+@group(0) @binding(1) 
+var S_u_Texture: sampler;
+
+@fragment
+fn main(vtx: VertexOutput) -> FragmentOutput {
+    var t_Color = textureSample(T_u_Texture, S_u_Texture, vtx.v_TexCoord);
+    t_Color *= vtx.v_Color;
+    if (t_Color.a == 0.0) {
+        discard;
+    }
+    return FragmentOutput(t_Color);
+}
+`;
+
 export class MDL0Renderer {
     private visible = true;
     public modelMatrix = mat4.create();
@@ -253,10 +341,11 @@ export class MDL0Renderer {
     public bbox: AABB | null = null;
 
     constructor(cache: GfxRenderCache, public model: MDL0Model, private tex0: TEX0) {
-        const program = new NITRO_Program();
-        program.defines.set('USE_VERTEX_COLOR', '1');
-        program.defines.set('USE_TEXTURE', '1');
-        this.gfxProgram = cache.createProgram(program);
+        // const program = new NITRO_Program();
+        // program.defines.set('USE_VERTEX_COLOR', '1');
+        // program.defines.set('USE_TEXTURE', '1');
+        // this.gfxProgram = cache.createProgram(program);
+        this.gfxProgram = cache.createProgramSimple({ shadingLanguage: GfxShadingLanguage.WGSL, preprocessedVert: vertProgram, preprocessedFrag: fragProgram });
         const posScale = 50;
         mat4.fromScaling(this.modelMatrix, [posScale, posScale, posScale]);
 
