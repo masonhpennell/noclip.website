@@ -313,7 +313,9 @@ export class ModelRenderer {
                 }
             }
             offs = baseOffs + lightSize * 4;
+            let skyboxBlend = 0;
             for (let doodad of doodadChunk) {
+                skyboxBlend = doodad.skyboxBlend;
                 offs += fillMatrix4x3(mapped, offs, doodad.modelMatrix);
                 offs += fillVec4v(mapped, offs, doodad.ambientColor); // interiorAmbientColor
                 if (doodad.color !== null) {
@@ -337,12 +339,13 @@ export class ModelRenderer {
                 const indexBuffer = this.indexBuffers[i];
                 for (let j = 0; j < skinData.batches.length; j++) {
                     const batch = skinData.batches[j];
+                    if (!batch.visible) continue;
                     if (batch.getTextureWeight(0) === 0) {
                         continue;
                     }
                     const renderInst = renderInstManager.newRenderInst();
                     renderInst.setVertexInput(this.inputLayout, [this.vertexBuffer], indexBuffer);
-                    batch.setMegaStateFlags(renderInst);
+                    batch.setMegaStateFlags(renderInst, this.model.isSkybox && skyboxBlend < 1.0);
                     renderInst.setDrawCount(batch.submesh.index_count, batch.submesh.index_start);
                     renderInst.setInstanceCount(doodadChunk.length);
                     const mappings = this.skinBatchTextures[i][j];
@@ -1216,6 +1219,7 @@ export class SkyboxRenderer {
             [this.vertexBuffer],
             this.indexBuffer,
         );
+        renderInst.setMegaStateFlags({ depthWrite: false });
         renderInst.setBindingLayouts(SkyboxProgram.bindingLayouts);
         renderInst.setDrawCount(this.numIndices, 0);
         renderInstManager.submitRenderInst(renderInst);

@@ -1,6 +1,6 @@
 use deku::{ctx::ByteSize, prelude::*};
 use wasm_bindgen::prelude::*;
-use std::{io::Cursor, ops::{AddAssign, Mul}};
+use std::{io::Cursor, ops::{AddAssign, DivAssign, Mul}};
 
 use crate::geometry::AABB;
 
@@ -99,7 +99,11 @@ impl<'a> Iterator for ChunkedData<'a> {
         }
         let (_, chunk) = Chunk::from_bytes((&self.data[self.idx..], 0)).unwrap();
         let chunk_start = self.idx + 8;
-        let chunk_end = chunk_start + chunk.size as usize;
+        let mut chunk_end = chunk_start + chunk.size as usize;
+        // hack: ADTs in Zul'Drak seem to be missing 1 chunk for some reason
+        if chunk_end > self.data.len() {
+            chunk_end = self.data.len() - 1;
+        }
         let chunk_data = &self.data[chunk_start..chunk_end];
         self.idx = chunk_end;
         assert!(self.idx <= self.data.len());
@@ -175,6 +179,14 @@ pub struct Vec3 {
 impl Vec3 {
     pub fn new(v: f32) -> Self {
         Vec3 { x: v, y: v, z: v }
+    }
+}
+
+impl DivAssign<f32> for Vec3 {
+    fn div_assign(&mut self, rhs: f32) {
+        self.x /= rhs;
+        self.y /= rhs;
+        self.z /= rhs;
     }
 }
 

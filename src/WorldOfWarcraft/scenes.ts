@@ -1,14 +1,14 @@
 import { mat4, ReadonlyMat4, vec3, vec4 } from "gl-matrix";
 import { CameraController } from "../Camera.js";
 import { AABB, Frustum } from "../Geometry.js";
-import { getMatrixTranslation, invlerp, lerp, projectionMatrixForFrustum, saturate, setMatrixTranslation, transformVec3Mat4w1 } from "../MathHelpers.js";
+import { getMatrixTranslation, invlerp, lerp, projectionMatrixForFrustum, saturate, setMatrixTranslation, transformVec3Mat4w1, Vec3UnitX, Vec3UnitY, Vec3UnitZ, Vec3Zero } from "../MathHelpers.js";
 import { SceneContext } from "../SceneBase.js";
 import { makeBackbufferDescSimple, standardFullClearRenderPassDescriptor } from "../gfx/helpers/RenderGraphHelpers.js";
 import { GfxClipSpaceNearZ, GfxCullMode, GfxDevice } from "../gfx/platform/GfxPlatform.js";
 import { GfxProgram } from "../gfx/platform/GfxPlatformImpl.js";
 import { GfxrAttachmentSlot } from "../gfx/render/GfxRenderGraph.js";
 import { GfxRenderHelper } from "../gfx/render/GfxRenderHelper.js";
-import { GfxRenderInstList } from "../gfx/render/GfxRenderInstManager.js";
+import { gfxRenderInstCompareNone, GfxRenderInstExecutionOrder, GfxRenderInstList } from "../gfx/render/GfxRenderInstManager.js";
 import { rust } from "../rustlib.js";
 import { assert } from "../util.js";
 import * as Viewer from "../viewer.js";
@@ -17,6 +17,7 @@ import { BaseProgram, LoadingAdtProgram, ModelProgram, ParticleProgram, SkyboxPr
 import { LoadingAdtRenderer, ModelRenderer, SkyboxRenderer, TerrainRenderer, WaterRenderer, WmoRenderer } from "./render.js";
 import { TextureCache } from "./tex.js";
 import type { ConvexHull } from "../../rust/pkg/noclip_support";
+import { Blue, Cyan, Green, Red } from "../Color.js";
 
 export const MAP_SIZE = 17066;
 
@@ -51,6 +52,8 @@ export class View {
     public clipFromWorldMatrix = mat4.create();
     // aka projectionMatrix
     public clipFromViewMatrix = mat4.create();
+    public backbufferWidth: number;
+    public backbufferHeight: number;
     public interiorSunDirection = vec4.fromValues(-0.30822, -0.30822, -0.9, 0);
     public exteriorDirectColorDirection = vec4.fromValues(-0.30822, -0.30822, -0.9, 0);
     public clipSpaceNearZ: GfxClipSpaceNearZ;
@@ -101,6 +104,9 @@ export class View {
     }
 
     public setupFromViewerInput(viewerInput: Viewer.ViewerRenderInput): void {
+        this.backbufferWidth = viewerInput.backbufferWidth;
+        this.backbufferHeight = viewerInput.backbufferHeight;
+
         this.cullingNearPlane = viewerInput.camera.near;
         this.clipSpaceNearZ = viewerInput.camera.clipSpaceNearZ;
         mat4.mul(this.viewFromWorldMatrix, viewerInput.camera.viewMatrix, noclipSpaceFromAdtSpace);
@@ -283,7 +289,7 @@ export class WdtScene implements Viewer.SceneGfx {
     private skyboxRenderer: SkyboxRenderer;
     private loadingAdtRenderer: LoadingAdtRenderer;
     private renderInstListMain = new GfxRenderInstList();
-    private renderInstListSky = new GfxRenderInstList();
+    private renderInstListSky = new GfxRenderInstList(gfxRenderInstCompareNone, GfxRenderInstExecutionOrder.Forwards);
 
     public ADT_LOD0_DISTANCE = 1000;
 
@@ -304,7 +310,6 @@ export class WdtScene implements Viewer.SceneGfx {
     public currentAdtCoords: [number, number] = [0, 0];
     public loadingAdts: [number, number][] = [];
 
-    public debug = false;
     public enableFog = true;
     public enableParticles = true;
     public cullingState = CullingState.Running;
@@ -657,6 +662,8 @@ export class WdtScene implements Viewer.SceneGfx {
         template.setGfxProgram(this.skyboxProgram);
         template.setBindingLayouts(SkyboxProgram.bindingLayouts);
 
+        this.renderHelper.debugDraw.beginFrame(this.mainView.clipFromViewMatrix, this.mainView.viewFromWorldMatrix, this.mainView.backbufferWidth, this.mainView.backbufferHeight);
+
         const lightingData = this.db.getGlobalLightingData(this.world.lightdbMapId, this.mainView.cameraPos, this.mainView.time);
         BaseProgram.layoutUniformBufs(template, this.mainView, lightingData);
         renderInstManager.setCurrentList(this.renderInstListSky);
@@ -844,6 +851,7 @@ export class WdtScene implements Viewer.SceneGfx {
                 this.renderInstListMain.drawOnPassRenderer(this.renderHelper.renderCache, passRenderer);
             });
         });
+        this.renderHelper.debugDraw.pushPasses(builder, mainColorTargetID, mainDepthTargetID);
         this.renderHelper.antialiasingSupport.pushPasses(builder, viewerInput, mainColorTargetID);
         builder.resolveRenderTargetToExternalTexture(mainColorTargetID, viewerInput.onscreenTexture);
 
@@ -1075,10 +1083,22 @@ const bcSceneDescs = [
     new WdtSceneDesc("Arena: Blade's Edge", 780261, 562),
 
     "Outland",
-    new ContinentSceneDesc("The Dark Portal", 828395, 29, 32, 530),
-    new ContinentSceneDesc("Shattrath", 828395, 22, 35, 530),
+    new ContinentSceneDesc("The Dark Portal, Hellfire Peninsula", 828395, 29, 32, 530),
+    new ContinentSceneDesc("Cenarion Refuge, Zangarmarsh", 828395, 21, 32, 530),
+    new ContinentSceneDesc("Area 52, Netherstorm", 828395, 25, 26, 530),
+    new ContinentSceneDesc("Telaar, Nagrand", 828395, 18, 36, 530),
+    new ContinentSceneDesc("Black Temple, Shadowmoon Valley", 828395, 30, 38, 530),
+    new ContinentSceneDesc("Shattrath, Terokkar Forest", 828395, 22, 35, 530),
+
+    "Quel'thalas",
     new ContinentSceneDesc("Silvermoon City, Eversong Woods", 828395, 45, 14, 530),
-    new ContinentSceneDesc("Exodar, Azuremist Isle", 828395, 54, 39, 530),
+    new ContinentSceneDesc("Tranquillien, Ghostlands", 828395, 44, 17, 530),
+    new ContinentSceneDesc("Sunspire, Sunstrider Isle", 828395, 43, 12, 530),
+
+    "Azuremist Isles",
+    new ContinentSceneDesc("Exodar, Azuremist Isles", 828395, 54, 39, 530),
+    new ContinentSceneDesc("Ammen Vale, Azuremist Isles", 828395, 58, 39, 530),
+    new ContinentSceneDesc("Blood Watch, Azuremist Isles", 828395, 54, 35, 530),
 ];
 
 const wotlkSceneDescs = [
@@ -1105,7 +1125,7 @@ const wotlkSceneDescs = [
     new WdtSceneDesc("Icecrown Citadel", 820428, 0), // map id is actually 631
     new WdtSceneDesc("Ulduar", 825015, 603),
     new WdtSceneDesc("The Obsidian Sanctum", 820448, 615),
-    new WdtSceneDesc("The Ruby Sanctum", 821024, 724),
+    // new WdtSceneDesc("The Ruby Sanctum", 821024, 724),
     new WdtSceneDesc("Vault of Archavon", 826589, 624),
     new WdtSceneDesc("Trial of the Crusader", 818173, 649),
     new WdtSceneDesc("The Eye of Eternity", 822560, 616),
@@ -1118,7 +1138,17 @@ const wotlkSceneDescs = [
 
     "Northrend",
     new ContinentSceneDesc("Icecrown Citadel, Icecrown", 822688, 27, 20, 571),
-    new ContinentSceneDesc("Dalaran, Crystalsong Forest", 822688, 30, 20, 571),
+    new ContinentSceneDesc("Dalaran, Crystalsong Forest", 822688, 31, 21, 571),
+    new ContinentSceneDesc("Grizzlemaw, Grizzly Hills", 822688, 39, 24, 571),
+    new ContinentSceneDesc("Gundrak, Zul'Drak", 822688, 40, 19, 571),
+    new ContinentSceneDesc("River's Heart, Sholazar Basin", 822688, 22, 21, 571),
+    new ContinentSceneDesc("Terrace of the Makers, The Storm Peaks", 822688, 34, 17, 571),
+    new ContinentSceneDesc("The Nexus, Coldarra", 822688, 19, 25, 571),
+    new ContinentSceneDesc("Ulduar, The Storm Peaks", 822688, 33, 15, 571),
+    new ContinentSceneDesc("Utgarde Keep, Howling Fjord", 822688, 41, 30, 571),
+    new ContinentSceneDesc("Valiance Keep, Borean Tundra", 822688, 21, 27, 571),
+    new ContinentSceneDesc("Warsong Hold, Borean Tundra", 822688, 20, 27, 571),
+    new ContinentSceneDesc("Wintergrasp Fortress, Wintergrasp", 822688, 26, 22, 571),
     new ContinentSceneDesc("Wyrmrest Temple, Dragonblight", 822688, 31, 24, 571),
 ];
 
@@ -1139,5 +1169,4 @@ export const wotlkSceneGroup: Viewer.SceneGroup = {
     id: "WorldOfWarcraftWOTLK",
     name: "World of Warcraft: Wrath of the Lich King",
     sceneDescs: wotlkSceneDescs,
-    hidden: true,
 };

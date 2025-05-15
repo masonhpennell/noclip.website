@@ -51,6 +51,7 @@ import * as Scenes_StarFoxAdventures from './StarFoxAdventures/scenes.js';
 import * as Scenes_SuperMarioOdyssey from './fres_nx/smo_scenes.js';
 import * as Scenes_GTA from './GrandTheftAuto3/scenes.js';
 import * as Scenes_SpongeBobBFBB from './HeavyIron/Scenes_BFBB.js';
+import * as Scenes_SpongeBobTSSM from './HeavyIron/Scenes_TSSM.js';
 import * as Scenes_SuperSmashBrosMelee from './SuperSmashBrosMelee/Scenes_SuperSmashBrosMelee.js';
 import * as Scenes_PokemonSnap from './PokemonSnap/scenes.js';
 import * as Scenes_MetroidPrimeHunters from './MetroidPrimeHunters/Scenes_MetroidPrimeHunters.js';
@@ -174,6 +175,7 @@ const sceneGroups: (string | SceneGroup)[] = [
     Scenes_KingdomHeartsIIFinalMix.sceneGroup,
     "Xbox",
     Scenes_SpongeBobBFBB.sceneGroup,
+    Scenes_SpongeBobTSSM.sceneGroup,
     "PC",
     Scenes_DarkSouls.sceneGroup,
     Scenes_DarkSoulsCollision.sceneGroup,
@@ -187,6 +189,8 @@ const sceneGroups: (string | SceneGroup)[] = [
     Scenes_Portal.sceneGroup,
     Scenes_Portal2.sceneGroup,
     Scenes_WorldOfWarcraft.vanillaSceneGroup,
+    Scenes_WorldOfWarcraft.bcSceneGroup,
+    Scenes_WorldOfWarcraft.wotlkSceneGroup,
     "Experimental",
     Scenes_CrashWarped.sceneGroup,
     Scenes_DonkeyKong64.sceneGroup,
@@ -217,8 +221,6 @@ const sceneGroups: (string | SceneGroup)[] = [
     Scenes_TheStanleyParable.sceneGroup,
     Scenes_Infra.sceneGroup,
     Scenes_JetSetRadio.sceneGroup,
-    Scenes_WorldOfWarcraft.bcSceneGroup,
-    Scenes_WorldOfWarcraft.wotlkSceneGroup,
     Scenes_HalfLife.sceneGroup,
     Scenes_Left4Dead2.sceneGroup,
     Scenes_NeoTokyo.sceneGroup,
